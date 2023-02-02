@@ -25,11 +25,15 @@
 #include "ei_ext_flash_nicla_syntiant.h"
 #include "mbed.h"
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
+#ifndef WITH_IMU
 #include "ingestion-sdk-platform/sensors/ei_microphone.h"
+#endif
 #include "file-transfer/ymodem.h"
 #include "Nicla_System.h"
 #include "ei_syntiant_ndp120.h"
 
+using namespace rtos;
+using namespace events;
 
 /**
  * @brief Construct a new Ei Device Syntiant Nicla:: Ei Device Syntiant Nicla object
@@ -43,10 +47,12 @@ EiDeviceSyntiantNicla::EiDeviceSyntiantNicla(EiDeviceMemory* int_mem, EiExtFlash
     memory = int_mem;
     _external_flash = ext_mem;
     
+#ifndef WITH_IMU
     sensors[MICROPHONE].name = "Microphone";
     sensors[MICROPHONE].frequencies[0] = 16000.0f;
     sensors[MICROPHONE].start_sampling_cb = &ei_microphone_start_sampling;
     sensors[MICROPHONE].max_sample_length_s = 5;   // TODO
+#endif
 
     init_device_id();   // set ID
     load_config();
@@ -82,7 +88,11 @@ void EiDeviceSyntiantNicla::read_raw(uint8_t *buffer, uint32_t pos, uint32_t byt
  */
 bool EiDeviceSyntiantNicla::get_sensor_list(const ei_device_sensor_t **sensor_list, size_t *sensor_list_size)
 {
+#ifndef WITH_IMU    
     *sensor_list      = sensors;
+#else
+    *sensor_list      = nullptr;
+#endif
     *sensor_list_size = EI_DEVICE_N_SENSORS;
 
     return true;
@@ -228,6 +238,65 @@ bool EiDeviceSyntiantNicla::get_file_exist(char* filename)
     return _external_flash->get_file_exist(file);
 }
 
+#ifdef WITH_IMU
+
+/** MBED thread */
+uint8_t fusion_stack[4 * 1024];
+rtos::Thread* fusion_thread;
+//Thread fusion_thread;
+//EventQueue fusion_queue(2 * EVENTS_EVENT_SIZE);
+//mbed::Ticker fusion_sample_rate;
+
+void (*local_sample_read_cb)(void);    
+static uint32_t local_sample_interval;
+static bool is_sampling = false;
+
+void sample_thread(void)
+{
+    uint32_t start_time = 0;
+    uint32_t stop_time = start_time;
+
+    while(is_sampling)
+    {
+        //start_time = rtos::Kernel::get_ms_count();
+        if (local_sample_read_cb != nullptr){
+            local_sample_read_cb();
+        }
+        //stop_time = rtos::Kernel::get_ms_count();
+        //ei_printf("local_sample_read_cb %lu \n", (stop_time - start_time));
+        ei_sleep(local_sample_interval);
+    }
+}
+
+
+bool EiDeviceSyntiantNicla::start_sample_thread(void (*sample_read_cb)(void), float sample_interval_ms)
+{
+    local_sample_read_cb = sample_read_cb;
+    local_sample_interval = (uint32_t)sample_interval_ms;
+    is_sampling = true;
+
+    fusion_thread = new  rtos::Thread(osPriorityAboveNormal, sizeof(fusion_stack), fusion_stack, "fusion-thread");
+    fusion_thread->start(mbed::callback(sample_thread));
+    
+    return true;
+}
+
+/**
+ * @brief Stop timer of thread
+ * @return true
+ */
+
+bool EiDeviceSyntiantNicla::stop_sample_thread(void)
+{
+    is_sampling = false;
+
+    fusion_thread->terminate();    // needed ?
+    fusion_thread->join();
+
+    return true;
+}
+#endif
+
 /**
  * @brief get_device is a static method of EiDeviceInfo class
  * It is used to implement singleton paradigm, so we are returning
@@ -243,4 +312,22 @@ EiDeviceInfo* EiDeviceInfo::get_device(void)
     static EiDeviceSyntiantNicla dev(&internal_flash, &external_flash);
 
     return &dev;
+}
+
+void print_memory_info(void)
+{
+    // allocate enough room for every thread's stack statistics
+    int cnt = osThreadGetCount();
+    mbed_stats_stack_t *stats = (mbed_stats_stack_t*) ei_malloc(cnt * sizeof(mbed_stats_stack_t));
+
+    cnt = mbed_stats_stack_get_each(stats, cnt);
+    for (int i = 0; i < cnt; i++) {
+        ei_printf("Thread: 0x%lX, Stack size: %lu / %lu\r\n", stats[i].thread_id, stats[i].max_size, stats[i].reserved_size);
+    }
+    free(stats);
+
+    // Grab the heap statistics
+    mbed_stats_heap_t heap_stats;
+    mbed_stats_heap_get(&heap_stats);
+    ei_printf("Heap size: %lu / %lu bytes\r\n", heap_stats.current_size, heap_stats.reserved_size);
 }

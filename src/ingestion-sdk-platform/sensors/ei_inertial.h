@@ -30,9 +30,12 @@
 #define SIZEOF_ACCEL_AXIS_SAMPLED   (sizeof(float) * ACCEL_AXIS_SAMPLED)
 #define INERTIAL_AXIS_SAMPLED       6
 
+
 /* Function prototypes ----------------------------------------------------- */
-bool ei_inertial_init(void);
-float *ei_fusion_inertial_read_data(int n_samples);
+extern bool ei_inertial_init(void);
+extern float *ei_fusion_inertial_read_data(int n_samples);
+extern void ei_inertial_send_to_ndp(uint8_t axes);
+extern void ei_inertial_prepare_impulse(void);
 
 static const ei_device_fusion_sensor_t inertial_sensor = {
     // name of sensor module to be displayed in fusion list
@@ -47,5 +50,7 @@ static const ei_device_fusion_sensor_t inertial_sensor = {
     &ei_fusion_inertial_read_data,
     0
 };
+
+void ei_inertial_read_test(void);
 
 #endif /* INGESTION_SDK_PLATFORM_SENSORS_EI_INERTIAL_SENSOR_H_ */

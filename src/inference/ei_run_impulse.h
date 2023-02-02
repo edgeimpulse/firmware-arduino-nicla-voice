@@ -19,7 +19,12 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#ifndef EI_NICLA_VOICE_RUN_IMPULSE_H_
+#define EI_NICLA_VOICE_RUN_IMPULSE_H_
 
 extern void ei_run_nn_normal(void);
 extern void ei_classification_output(int matched_feature);
 extern bool ei_run_impulse_is_active(void);
+extern void ei_run_impulse(void);
+
+#endif

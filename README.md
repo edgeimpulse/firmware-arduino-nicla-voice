@@ -12,10 +12,15 @@ step manually, follow the step in the next chapter.
 
 For building the project:
 
+* For audio support, use:
 ```
 ./arduino-build.sh --build
 ```
 
+* For IMU sensor support, use:
+```
+./arduino-build.sh --build --with-imu
+```
 
 For flashing use:
 
@@ -26,7 +31,7 @@ For flashing use:
 
 You can also do both by using:
 ```
-./arduino-build.sh --all
+./arduino-build.sh --all [--with-imu]
 ```
 
 ### Usage - Windows
@@ -37,8 +42,14 @@ You can also do both by using:
 
 For building the project:
 
+* For audio support, use:
 ```
 ./arduino-win-build.bat --build
+```
+
+* For IMU sensor support, use:
+```
+./arduino-win-build.bat --build --with-imu
 ```
 
 
@@ -51,15 +62,15 @@ For flashing use:
 
 You can also do both by using:
 ```
-./arduino-win-build.bat --all
+./arduino-win-build.bat --all [--with-imu]
 ```
 
 
 ### Flash NDP firmware and models
 
 In order to be fully operative, the external flash of the board should be populated with:
-- mcu_fw_120_v90.synpkg
-- dsp_firmware_v90.synpkg
+- mcu_fw_120_v91.synpkg
+- dsp_firmware_v91.synpkg
 - ei_model.synpkg
 
 #### Update using flash batch
@@ -68,7 +79,7 @@ There are 4 scripts for each supported OS:
 - flash_<os> runs the mcu and the model flash script.
 - flash_<os>_mcu flash just the firmware for the mcu.
 - flash_<os>_model flash, if they are not present on the board, the NDP fw and the NDP dsp fw, and update the model.
-- format_<os>_ext_flash erase the external flash
+- format_<os>_ext_flash erase the external flash.
 
 where os can be linux, mac or windows.
 

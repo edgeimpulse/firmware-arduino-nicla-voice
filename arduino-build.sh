@@ -3,6 +3,8 @@
 
 PROJECT=firmware-arduino-nicla-voice
 COMMAND=$1
+# use --with-imu flag as 2nd argument to build firmware for IMU
+SENSOR=$2
 
 # used for grepping
 ARDUINO_CORE="arduino-git:mbed" # temporary !
@@ -13,7 +15,7 @@ if [ -z "$ARDUINO_CLI" ]; then
 	ARDUINO_CLI=$(which arduino-cli || true)
 fi
 
-#DIRNAME="$(basename "$SCRIPTPATH")"
+DIRNAME="$(basename "$SCRIPTPATH")"
 EXPECTED_CLI_MAJOR=0
 EXPECTED_CLI_MINOR=21
 
@@ -72,10 +74,10 @@ if [ -z "$HAS_ARDUINO_CORE" ]; then
     # TEMPORARY SOLUTION !!!
     #$ARDUINO_CLI core update-index
     #$ARDUINO_CLI core install arduino:mbed@9.9.9
-    cp -R /app/hardware-mbed-git-nicla-syntiant-v90.zip /root/Arduino/
+    cp -R /app/hardware-mbed-git-nicla-voice-v91-imu.zip /root/Arduino/
     cd /root/Arduino
-    unzip -q hardware-mbed-git-nicla-syntiant-v90.zip
-    rm ./hardware-mbed-git-nicla-syntiant-v90.zip
+    unzip -q hardware-mbed-git-nicla-voice-v91-imu.zip
+    rm ./hardware-mbed-git-nicla-voice-v91-imu.zip 
     cd /app/firmware
     echo "Installing Arduino Nicla Voice core OK"
 fi
@@ -134,6 +136,7 @@ fi
 
 # Include path
 INCLUDE="-I ./src"
+INCLUDE+=" -I./src/ingestion-sdk"
 INCLUDE+=" -I./src/ingestion-sdk-platform/sensors"
 INCLUDE+=" -I./src/firmware-sdk"
 INCLUDE+=" -I ./src/QCBOR/inc"
@@ -142,17 +145,23 @@ INCLUDE+=" -I ./src/sensor_aq_mbedtls"
 FLAGS="-DARDUINOSTL_M_H"
 #FLAGS+=" -DMBED_HEAP_STATS_ENABLED=1"
 #FLAGS+=" -DMBED_STACK_STATS_ENABLED=1"
-FLAGS+=" -O3"
+FLAGS+=" -O1"
 #FLAGS+=" -DMBED_DEBUG"
 #FLAGS+=" -g3"
 FLAGS+=" -DEI_SENSOR_AQ_STREAM=FILE"
 FLAGS+=" -DEI_PORTING_ARDUINO=1"
-#FLAGS+=" -mfpu=fpv4-sp-d16"
+
+if [ "$SENSOR" = "--with-imu" ];
+then    
+    CPP_FLAGS="-DWITH_IMU"
+else
+    CPP_FLAGS=""
+fi
 
 if [ "$COMMAND" = "--build" ];
 then
     echo "Building $PROJECT"
-    arduino-cli compile -v --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --output-dir . &
+    arduino-cli compile -v --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --build-property "compiler.cpp.extra_flags=${CPP_FLAGS}" --output-dir . &
     pid=$! # Process Id of the previous running command
     while kill -0 $pid 2>/dev/null
     do
@@ -174,7 +183,7 @@ elif [ "$COMMAND" = "--all" ];
 then
     echo "Building and flashing $PROJECT"
         echo "Building $PROJECT"
-    arduino-cli compile -v --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --output-dir . &
+    arduino-cli compile -v --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --build-property "compiler.cpp.extra_flags=${CPP_FLAGS}" --output-dir . &
     pid=$! # Process Id of the previous running command
     while kill -0 $pid 2>/dev/null
     do

@@ -23,6 +23,7 @@
 #include "ei_run_impulse.h"
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
 #include "model-parameters/model_variables.h"
+#include "ingestion-sdk-platform/sensors/ei_inertial.h"
 
 bool _run_impulse = false;
 
@@ -35,7 +36,9 @@ void ei_run_nn_normal(void)
     //ei_start_stop_run_impulse(true);
     // summary of inferencing settings (from model_metadata.h)
     ei_printf("Inferencing settings:\n");
-    ei_printf("\tInterval: %.4f ms.\n", (float)EI_CLASSIFIER_INTERVAL_MS);
+    ei_printf("\tInterval: ");
+    ei_printf_float((float)EI_CLASSIFIER_INTERVAL_MS);
+    ei_printf(" ms.\n");
     ei_printf("\tFrame size: %d\n", EI_CLASSIFIER_DSP_INPUT_FRAME_SIZE);
     ei_printf("\tSample length: %d ms.\n", EI_CLASSIFIER_RAW_SAMPLE_COUNT / 16);
     ei_printf("\tNo. of classes: %d\n", sizeof(ei_classifier_inferencing_categories) /
@@ -47,10 +50,13 @@ void ei_run_nn_normal(void)
     }
 
     //ei_printf("Starting inferencing, press 'b' to break\n");
+#ifdef WITH_IMU
+    ei_inertial_prepare_impulse();
+#endif
 }
 
 /**
- * @brief      Called from the ndp101 read out. Print classification output
+ * @brief      Called from the ndp120 read out. Print classification output
  *             and send matched output string to user callback
  *
  * @param[in]  matched_feature
@@ -83,4 +89,19 @@ void ei_classification_output(int matched_feature)
 bool ei_run_impulse_is_active(void)
 {
     return _run_impulse;
+}
+
+/**
+ * @brief 
+ * 
+ */
+void ei_run_impulse(void)
+{
+#ifdef WITH_IMU
+    uint8_t axes = 6;
+
+    ei_inertial_send_to_ndp(axes);
+    ei_sleep(EI_CLASSIFIER_INTERVAL_MS);
+    
+#endif
 }

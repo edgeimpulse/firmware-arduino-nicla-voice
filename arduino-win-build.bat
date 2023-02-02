@@ -24,7 +24,7 @@ IF ERRORLEVEL 1 (
 
 :: define and include
 set DEFINE=-DARDUINOSTL_M_H -DEI_SENSOR_AQ_STREAM=FILE -DEI_PORTING_ARDUINO=1 -DMBED_NO_GLOBAL_USING_DIRECTIVE -O3
-set INCLUDE=-I.\\src\\  -I.\\src\\ingestion-sdk-platform\\sensors\\ -I.\\src\\firmware-sdk\\ -I.\\src\\QCBOR\\inc\\ -I.\\src\\sensor_aq_mbedtls\\
+set INCLUDE=-I.\\src\\  -I.\\src\\ingestion-sdk -I.\\src\\ingestion-sdk-platform\\sensors\\ -I.\\src\\firmware-sdk\\ -I.\\src\\QCBOR\\inc\\ -I.\\src\\sensor_aq_mbedtls\\
 
 :: just build
 IF %COMMAND% == %BUILD_OPTION% goto :BUILD

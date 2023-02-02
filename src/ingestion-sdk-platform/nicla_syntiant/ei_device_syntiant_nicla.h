@@ -28,15 +28,11 @@
 #include "mbed.h"
 #include "Stream.h"
 
-#define WITH_IMU    0
-
 /** Sensors */
 typedef enum
 {
+#ifndef WITH_IMU
     MICROPHONE      = 0,
-#if WITH_IMU == 1
-    ACCELEROMETER   = 1,
-    MAGNETOMERTER   = 2
 #endif
     MAX_SENSORS_NUMBER
 }used_sensors_t;
@@ -46,7 +42,9 @@ typedef enum
 
 class EiDeviceSyntiantNicla: public EiDeviceInfo {
     private:
+#ifndef WITH_IMU
         ei_device_sensor_t sensors[EI_DEVICE_N_SENSORS];
+#endif
         void init_device_id(void);        
         EiExtFlashMemory *_external_flash;
         bool is_flashing;
@@ -56,7 +54,7 @@ class EiDeviceSyntiantNicla: public EiDeviceInfo {
         ~EiDeviceSyntiantNicla();
         EiDeviceSyntiantNicla(EiDeviceMemory* internal_flash, EiExtFlashMemory* ext_mem);
 
-        bool get_sensor_list(const ei_device_sensor_t **sensor_list, size_t *sensor_list_size);
+        bool get_sensor_list(const ei_device_sensor_t **sensor_list, size_t *sensor_list_size) override ;
         void clear_config(void);
         uint32_t get_max_data_output_baudrate(void)
         {
@@ -84,11 +82,14 @@ class EiDeviceSyntiantNicla: public EiDeviceInfo {
             return _external_flash;
         }
 
+#ifdef WITH_IMU
+        bool start_sample_thread(void (*sample_read_cb)(void), float sample_interval_ms) override;
+        bool stop_sample_thread(void) override ;
+#endif
+
 };
 
 extern mbed::Stream* ei_get_serial(void);
-
-/* Reference to object for external usage ---------------------------------- */
-//extern EiDeviceSyntiantNicla EiDevice;
+extern void print_memory_info(void);
 
 #endif  /* */

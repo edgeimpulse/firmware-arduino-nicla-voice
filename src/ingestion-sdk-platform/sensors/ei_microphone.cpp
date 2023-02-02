@@ -21,6 +21,7 @@
  */
 /* Include ----------------------------------------------------------------- */
 #include "ei_microphone.h"
+#include "ei_syntiant_ndp120.h"
 
 #include "mbed.h"
 #include "rtos.h"
@@ -31,12 +32,6 @@
 #include "sensor_aq_mbedtls/sensor_aq_mbedtls_hs256.h"
 #include "firmware-sdk/sensor_aq.h"
 #include "NDP.h"
-
-/* DEBUG */
-#if FAKE_MIC == 1
-#include "Nicla_System.h"
-#include "fake_mic.h"
-#endif
 
 /* Constant ---------------------------------------------------------------- */
 
@@ -56,15 +51,14 @@ static size_t ei_write(const void *buffer, size_t size, size_t count, EI_SENSOR_
 static int ei_seek(EI_SENSOR_AQ_STREAM * stream, long int offset, int origin);
 static int insert_ref(char *buffer, int hdrLength);
 static bool create_header(sensor_aq_payload_info *payload);
-//static void ingestion_samples_callback(const int16_t *buffer, uint32_t sample_count);
 
+#ifndef WITH_IMU
 static void mic_thread_function(void);
 
-//static void ei_mic_init(void);
-//static void ei_mic_deinit(void);
-
 /* Private variables ------------------------------------------------------- */
+
 static uint8_t local_mic_stack[10 * 1024];
+#endif
 //static rtos::Thread mic_thread(osPriorityNormal7, sizeof(local_mic_stack), local_mic_stack, "mic-thread");
 static inference_t inference;
 static uint32_t required_samples_size;
@@ -104,6 +98,7 @@ void ei_microphone_start_stream(void)
  */
 bool ei_microphone_start_sampling(void)
 {
+#ifndef WITH_IMU
     rtos::Thread* mic_thread;
     EiDeviceSyntiantNicla *dev = static_cast<EiDeviceSyntiantNicla*>(EiDeviceInfo::get_device());
     EiExtFlashMemory* ext_mem = dev->get_ext_flash();
@@ -151,10 +146,10 @@ bool ei_microphone_start_sampling(void)
     }
     
     mic_thread = new rtos::Thread(osPriorityNormal7, sizeof(local_mic_stack), local_mic_stack, "mic-thread");
+    
     sampling_finished = false;
     mic_thread->start(mbed::callback(mic_thread_function));
-    ei_printf("Sampling...\n");
-
+    
     while(!sampling_finished){
         rtos::ThisThread::sleep_for(100);
     }
@@ -186,6 +181,9 @@ bool ei_microphone_start_sampling(void)
     ei_printf("OK\n");
 
     return true;
+#else
+    return false;
+#endif
 }
 
 /**
@@ -198,6 +196,7 @@ void ei_microphone_stop_stream(void)
     //mic_thread.join();
 }
 
+#ifndef WITH_IMU
 /**
  * @brief 
  * 
@@ -206,64 +205,42 @@ static void mic_thread_function(void)
 {
     EiDeviceSyntiantNicla *dev = static_cast<EiDeviceSyntiantNicla*>(EiDeviceInfo::get_device());
     EiExtFlashMemory* ext_mem = dev->get_ext_flash();
-
-#if FAKE_MIC == 1    
-    const uint32_t max_index = sizeof(fake_mic_array)/sizeof(int16_t);
-    uint32_t local_audio_index = 0;
-    const uint16_t simulated_samples = 2000;
-    const uint16_t stored_samples = (simulated_samples*2);
-    uint8_t _local_audio_buffer[stored_samples] = {0};
-
-
-    uint32_t _local_current_samples = 0;
-    current_sample = 0;
-    //ei_printf("Mic thread started\n");
-    while(_local_current_samples < required_samples){
-        /* let's simulate 125 ms of data each time, 4kB of data and 2000 samples */
-        nicla::leds.setColor(off);
-        rtos::ThisThread::sleep_for(125);
-        nicla::leds.setColor(blue);
-
-        memcpy(_local_audio_buffer, (uint8_t*)&fake_mic_array[local_audio_index], stored_samples);  // just to test use of _local_audio_buffer         
-        ext_mem->write_sample_data(_local_audio_buffer, headerOffset + (_local_current_samples*2), stored_samples);
-        
-        if ((local_audio_index + simulated_samples) >= max_index){
-            local_audio_index = 0;
-        }
-        else{
-            local_audio_index += simulated_samples;
-        }
-
-        _local_current_samples += simulated_samples;
-    }
-
-#else
-    const uint16_t read_size = 768; // Every time I try to read 24 * x ms
-    const uint16_t _samples = read_size;
+    const uint16_t read_size = (768); // Every time I try to read 24 * x ms
+    const uint16_t _samples = read_size*3;
+    uint16_t read = 0;
     uint8_t _local_audio_buffer[_samples] = {0};
     uint32_t _local_current_samples = 0;
-    unsigned int len = 0;
-    uint16_t to_write = 0;
+    unsigned int len = 0;    
     int s = 0;
-    uint32_t start_time = rtos::Kernel::get_ms_count();
-    uint32_t stop_time = rtos::Kernel::get_ms_count();
 
-    ei_printf("Mic thread: required samples %d", required_samples);
+    ei_printf("Mic thread: required samples %d\n", required_samples);
 
-    //NDP.configTankReading(); // prepare tank for reading - IF done, inference will not WORK! 
-    //NDP.startTankReading();
-    nicla::leds.setColor(green);    
+    ei_syntiant_clear_match();
+    NDP.noInterrupts();
 
-    while(_local_current_samples < required_samples){
+    do {
+        s = NDP.extractData(_local_audio_buffer, &len); /* we want to unload the previous buffer */
+    }while(s != 0);
+    ei_printf("Latest retval: %d\n", s);
+
+    ei_printf("Sampling...\n");
+    nicla::leds.setColor(green);
+
+    while(_local_current_samples < required_samples) {
         
-        //start_time = rtos::Kernel::get_ms_count();        
-        s = NDP.extractData(&_local_audio_buffer[to_write], &len);
+        //start_time = rtos::Kernel::get_ms_count();
+        s = NDP.extractData(&_local_audio_buffer[read], &len);
         //stop_time = rtos::Kernel::get_ms_count();
-        //ei_printf("Reading %d samples took %d\n", len, (stop_time - start_time));
+        //ei_printf("Reading %u samples took %d with retval %d\n", len, (stop_time - start_time), s);
 
-        if (s !=0){
-            ext_mem->write_sample_data(_local_audio_buffer, headerOffset + (_local_current_samples*2), s);
-            _local_current_samples+=(s/2);    
+        if (len !=0) {
+            read += len;
+            if (read >= read_size*2) {
+                ext_mem->write_sample_data(_local_audio_buffer, headerOffset + (_local_current_samples * 2), read);
+                _local_current_samples += (read/2);
+                read = 0;
+            }
+
             //ei_sleep(1);    // give a little time ?
         }
         else{
@@ -273,12 +250,13 @@ static void mic_thread_function(void)
         
     }
 
-#endif
-
+    ei_syntiant_set_match();
+    NDP.interrupts();
     nicla::leds.setColor(off);
+
     sampling_finished = true;
 }
-
+#endif
 /**
  * @brief Create a header object
  * 

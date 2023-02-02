@@ -25,10 +25,7 @@
 
 #include <stdint.h>
 
-#define FAKE_MIC    0
-
 typedef int16_t microphone_sample_t;
-//typedef void (*mic_sampler_callback)(const int16_t *sample_buf, uint32_t byteLenght);
 
 extern bool ei_microphone_start_sampling(void);
 extern void ei_microphone_start_stream(void);

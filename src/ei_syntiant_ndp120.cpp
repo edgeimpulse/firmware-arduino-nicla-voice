@@ -28,7 +28,12 @@
 #include "ingestion-sdk-platform/nicla_syntiant/ei_device_syntiant_nicla.h"
 #include "ingestion-sdk-platform/sensors/ei_inertial.h"
 #include "inference/ei_run_impulse.h"
+#ifdef WITH_IMU
+#include "ingestion-sdk-platform/sensors/ei_inertial.h"
+#include "model-parameters/model_metadata.h"
+#else
 #include "ingestion-sdk-platform/sensors/ei_microphone.h"
+#endif
 
 #include "rtos.h"
 #include "Thread.h"
@@ -39,6 +44,7 @@
 /* device class */
 extern NDPClass NDP;
 static ATServer *at;
+static bool ndp_is_init;
 
 #if TEST_READ_TANK == 1
 static void test_ndp_extract(void);
@@ -60,31 +66,36 @@ static volatile bool got_event = false;
  */
 void ei_setup(char* fw1, char* fw2, char* fw3)
 {
-    uint8_t valid_synpkg = 0;
-    // int ret_val = 0;
+    uint8_t valid_synpkg = 0;    
     bool board_flashed = false;
     uint8_t flashed_count = 0;
     EiDeviceSyntiantNicla *dev = static_cast<EiDeviceSyntiantNicla*>(EiDeviceInfo::get_device());
     char* ptr_fw[] = {fw1, fw2, fw3};
 
+    ndp_is_init = false;
     Serial.begin(115200);
+
+    nicla::begin();
+    nicla::disableLDO();    // needed 
+    nicla::leds.begin();
+
+    while (!Serial) {   /* if Serial not avialable */
+        nicla::leds.setColor(red);
+    }
     
     ei_printf("Hello from Edge Impulse on Arduino Nicla Voice\r\n"
             "Compiled on %s %s\r\n",
             __DATE__,
             __TIME__);
 
-    nicla::begin();
-    nicla::disableLDO();    // needed 
-    nicla::leds.begin();
+
     nicla::leds.setColor(green);
-    
-    NDP.onError(error_event);
+    //NDP.onError(error_event);
     NDP.onEvent(irq_event);
     NDP.onMatch(match_event);
 
     dev->get_ext_flash()->init_fs();
-    for (int8_t i; i < 3 ; i++){
+    for (int8_t i; i < 3 ; i++) {
         if (ptr_fw[i] != nullptr){                  // nullptr check
             if (dev->get_file_exist(ptr_fw[i])){
                 ei_printf("%s exist\n", ptr_fw[i]);
@@ -102,12 +113,18 @@ void ei_setup(char* fw1, char* fw2, char* fw3)
         NDP.load(fw2);
         NDP.load(fw3);
         NDP.getInfo();
-        
-        //NDP.turnOnMicrophone();
-        NDP.turnOnMicrophone();
+        ndp_is_init = true;
+
+#ifdef WITH_IMU
+        NDP.configureInferenceThreshold(EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
+#else   
+        NDP.turnOnMicrophone();     
+        NDP.getAudioChunkSize();    /* otherwise it is not initialized ! */
+#endif
         NDP.interrupts();
-        ei_syntiant_set_match();        
-        nicla::leds.setColor(off);     
+
+        ei_syntiant_set_match();
+        nicla::leds.setColor(off);
     }
     else{
         ei_printf("NDP not properly initialized\n");
@@ -122,8 +139,14 @@ void ei_setup(char* fw1, char* fw2, char* fw3)
     /* sensor init */
     ei_inertial_init();
 
+#ifdef WITH_IMU
+    // ei_inertial_read_test();
+#endif
+
     /* start inference */
-    ei_run_nn_normal();
+    if (ndp_is_init == true) {
+        ei_run_nn_normal();
+    }    
 
     ei_printf("Type AT+HELP to see a list of commands.\r\n");
     at->print_prompt();
@@ -135,6 +158,7 @@ void ei_setup(char* fw1, char* fw2, char* fw3)
  */
 void ei_main(void)
 {
+    int match = -1;
     /* handle command comming from uart */
     char data = Serial.read();
 
@@ -155,28 +179,26 @@ void ei_main(void)
         nicla::leds.setColor(green);
         ThisThread::sleep_for(100);
         nicla::leds.setColor(off);
+        match = NDP.poll();
     }
 
-    ThisThread::sleep_for(50);
-}
+    if (match > 0) {
+        ei_printf("match: %d\n", match);
+        match = -1;
+    }
 
-#if TEST_READ_TANK == 1
-static void test_ndp_extract(void)
-{
-    int s;
-    unsigned int len = 4096;
-    uint8_t buffer[4096];
+#ifdef WITH_IMU
+    // for now by default we stay in inference
+    if (ei_run_impulse_is_active()) {
+        ei_run_impulse();
+    }
 
-    s = NDP.extractData(buffer, &len, 4096);
-    if (s == SYNTIANT_NDP_ERROR_DATA_REREAD){
-        ei_printf("REREAD ERROR\n");
-    }    
-    else{
-        ei_printf("Read %d\n", len);
-    }    
-
-}
+#else
+    ThisThread::sleep_for(50);  /* needed ? */
 #endif
+    
+}
+
 
 /**
  * @brief disable interrupt from NDP class
@@ -186,7 +208,7 @@ void ei_syntiant_clear_match(void)
 {
     _on_match_enabled = false;
     //NDP.turnOffMicrophone();
-    //NDP.noInterrupts();   // broken
+    //NDP.noInterrupts();
 }
 
 /**
@@ -223,12 +245,10 @@ static void error_event(void)
  */
 static void match_event(char* label)
 {
-    if (_on_match_enabled == true){
+    if (_on_match_enabled == true) {
         if (strlen(label) > 0) {
-            got_match = true;
-            //nicla::leds.begin();    
-            ei_printf("Match: %s\n", label);
-            //nicla::leds.end();
+            got_match = true;            
+            ei_printf("Match: %s\n", label);            
         }
     }
 }
@@ -238,8 +258,8 @@ static void match_event(char* label)
  * 
  */
 static void irq_event(void)
-{
-    got_event = true;
-    //nicla::leds.begin();
-    //nicla::leds.end();
+{    
+    if (_on_match_enabled == true) {
+        got_event = true;
+    }
 }

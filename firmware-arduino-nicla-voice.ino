@@ -31,22 +31,14 @@
 /* Public functions -------------------------------------------------------- */
 void NDP_INT_service(int match){ // This is developer's sandbox
     switch (match){
-    case 0:
-        break;
-    case 11:
-        nicla::leds.setColor(green);                       // Setting up RGB = Green
-        ei_printf("Classifier 10 detected");            // printing on the native console
-        delay(1000);                                        // Delay to keep the LED on for 1 second. Reduce it to reduce total power consumption
-        nicla::leds.setColor(off);                        // Turning off the Green LED
-        break;
     default:
         break;
     }
 }
 
 void setup() {
-    char mcu_fw[] = {"mcu_fw_120_v90.synpkg"};
-    char dsp_fw[] = {"dsp_firmware_v90.synpkg"};
+    char mcu_fw[] = {"mcu_fw_120_v91.synpkg"};
+    char dsp_fw[] = {"dsp_firmware_v91.synpkg"};
     char model[] = {"ei_model.synpkg"};
 
     ei_setup(mcu_fw, dsp_fw, model);
@@ -54,6 +46,5 @@ void setup() {
 }
 
 void loop() {
-    ei_main();
-    delay(10);
+    ei_main();    
 }

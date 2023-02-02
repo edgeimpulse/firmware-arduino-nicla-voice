@@ -24,6 +24,7 @@
 #include "Serial.h"
 #include "drivers/UnbufferedSerial.h"
 #include "edge-impulse-sdk/porting/ei_classifier_porting.h"
+#include "ei_syntiant_ndp120.h"
 #include "ei_fusion.h"
 #include "inference/ei_run_impulse.h"
 
@@ -135,7 +136,7 @@ ATServer * ei_at_init(EiDeviceSyntiantNicla *ei_device)
  * @return false 
  */
 bool at_list_config(void)
-{
+{    
     ei_printf("===== Device info =====\n");
     at_device_info();
     ei_printf("\n");
@@ -163,7 +164,7 @@ bool at_list_config(void)
     ei_printf("===== Remote management =====\n");
     at_get_mgmt_settings();
     ei_printf("\n");
-
+    
     return true;
 }
 
@@ -198,7 +199,7 @@ static bool at_clear_config(void)
 static bool at_device_info(void)
 {
     bool ret_val = false;
-
+    ei_syntiant_clear_match();
     if (pei_device != nullptr)
     {
         ei_printf("ID:         %s\n", pei_device->get_device_id().c_str());
@@ -211,6 +212,7 @@ static bool at_device_info(void)
     {
 
     }
+    ei_syntiant_set_match();
 
     return ret_val;
 }
@@ -239,6 +241,7 @@ static bool at_get_sample_settings(void)
     {
 
     }
+    ei_syntiant_set_match();
     
     return ret_val;
 }
@@ -299,6 +302,7 @@ static bool at_get_upload_settings(void)
     {
 
     }
+    ei_syntiant_set_match();
 
     return ret_val;
 }
@@ -400,6 +404,7 @@ static bool at_list_sensors(void)
     {
 
     }
+    ei_syntiant_set_match();
 
     return ret_val;
 }
@@ -412,7 +417,9 @@ static bool at_list_sensors(void)
  */
 static bool at_list_fusion_sensors(void)
 {
+    ei_syntiant_clear_match();
     ei_built_sensor_fusion_list();
+    ei_syntiant_set_match();
 
     return true;
 }
@@ -493,7 +500,9 @@ static bool at_run_nn_normal_cont(void)
  */
 static bool at_get_mgmt_settings(void)
 {
+    ei_syntiant_clear_match();
     ei_printf("%s\n", pei_device->get_management_url().c_str());
+    ei_syntiant_set_match();
 
     return true;
 }
@@ -561,7 +570,9 @@ static bool at_unlink_file(const char **argv, const int argc)
  */
 static bool at_read_buffer(const char **argv, const int argc)
 {
-bool success = false;
+    bool success = false;
+
+    ei_syntiant_clear_match();
 
     if(argc < 2) {
         ei_printf("Missing argument! Required: " AT_READBUFFER_ARGS "\n");
@@ -600,6 +611,7 @@ bool success = false;
             ei_printf("\n");
         }
     }
+    ei_syntiant_set_match();
 
     return success;
 }
@@ -614,6 +626,8 @@ bool success = false;
  */
 static bool at_read_raw(const char **argv, const int argc)
 {
+    ei_syntiant_clear_match();
+
     if(argc < 2) {
         ei_printf("Missing argument! Required: " AT_READBUFFER_ARGS "\n");
         return true;
@@ -638,6 +652,7 @@ static bool at_read_raw(const char **argv, const int argc)
         if (start > length)
             return true;
     }
+    ei_syntiant_set_match();
 
     return true;
 }
@@ -649,7 +664,8 @@ static bool at_read_raw(const char **argv, const int argc)
  * @param length 
  */
 static bool at_read_encode_send_sample_buffer(size_t start, size_t length)
-{    
+{   
+    ei_syntiant_clear_match();
     EiExtFlashMemory *ext_memory = pei_device->get_ext_flash();
     // we are encoiding data into base64, so it needs to be divisible by 3
     const int buffer_size = 513;
@@ -683,6 +699,8 @@ static bool at_read_encode_send_sample_buffer(size_t start, size_t length)
         start += bytes_to_read;
         length -= bytes_to_read;
     }
+
+    ei_syntiant_set_match();
 
     return true;
 }

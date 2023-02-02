@@ -37,6 +37,10 @@ public:
     uint32_t read_sample_data(uint8_t *sample_data, uint32_t address, uint32_t sample_data_size);
     uint32_t write_sample_data(const uint8_t *sample_data, uint32_t address, uint32_t sample_data_size);
     uint32_t erase_sample_data(uint32_t address, uint32_t num_bytes);
+    uint32_t get_erase_block_size(void)
+    {
+        return this->erase_block_size;
+    }
     bool get_file_exist(std::string filename);
     void print_file_list(void);
     bool delate_file(std::string filename);
@@ -45,10 +49,7 @@ public:
 protected:
     uint32_t read_data(uint8_t *data, uint32_t address, uint32_t num_bytes);
     uint32_t write_data(const uint8_t *data, uint32_t address, uint32_t num_bytes);
-    uint32_t erase_data(uint32_t address, uint32_t num_bytes);    
-    uint32_t write_sample_file(const uint8_t *data, uint32_t num_bytes);
-    uint32_t read_sample_file(uint8_t *data, uint32_t offset, uint32_t num_bytes);
-    uint32_t erase_sample_file(void);
+    uint32_t erase_data(uint32_t address, uint32_t num_bytes);
     
 public:
     EiExtFlashMemory(void);
@@ -57,14 +58,11 @@ public:
     void deinit_fs(void);
     
 private:
-    uint32_t get_first_usable_block(void);
-    uint32_t get_file_len(std::string file_name);
     uint64_t base_address;
     const uint32_t erase_block_size;
     SPIFBlockDevice _spif;
     mbed::LittleFileSystem _lfs;
     bool _fs_is_init;
-    //FILE *_pfile;
     const std::string _root_path = "/fs/";
     const std::string _local_file_name = "sample_file.bin";
 };
