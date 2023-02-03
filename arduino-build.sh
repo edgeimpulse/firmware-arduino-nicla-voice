@@ -40,6 +40,13 @@ if (( CLI_MAJOR != EXPECTED_CLI_MAJOR || CLI_MINOR != EXPECTED_CLI_MINOR )); the
 fi
 
 #$ARDUINO_CLI config dump | grep 'user: '
+get_arduino_root() {
+	local OUTPUT=$($ARDUINO_CLI config dump | grep 'user: ')
+	local arduino_root="${OUTPUT:8}"
+	echo "$arduino_root"
+}
+ARDUINO_ROOT_DIR="$(get_arduino_root)"
+
 get_library_dir() {
 	local OUTPUT=$($ARDUINO_CLI config dump | grep 'user: ')
 	local lib="${OUTPUT:8}"/libraries
@@ -71,14 +78,11 @@ has_mbed_core() {
 HAS_ARDUINO_CORE="$(has_mbed_core)"
 if [ -z "$HAS_ARDUINO_CORE" ]; then
     echo "Installing Arduino Nicla Voice core..."
-    # TEMPORARY SOLUTION !!!
-    #$ARDUINO_CLI core update-index
-    #$ARDUINO_CLI core install arduino:mbed@9.9.9
-    cp -R /app/hardware-mbed-git-nicla-voice-v91-imu.zip /root/Arduino/
-    cd /root/Arduino
-    unzip -q hardware-mbed-git-nicla-voice-v91-imu.zip
-    rm ./hardware-mbed-git-nicla-voice-v91-imu.zip 
-    cd /app/firmware
+
+    wget -O "${ARDUINO_ROOT_DIR}/hardware-mbed-git-nicla-voice-v91-imu.zip" https://cdn.edgeimpulse.com/build-system/hardware-mbed-git-nicla-voice-v91-imu.zip
+    unzip "${ARDUINO_ROOT_DIR}/hardware-mbed-git-nicla-voice-v91-imu.zip" -d "${ARDUINO_ROOT_DIR}/"
+
+    rm ${ARDUINO_ROOT_DIR}/hardware-mbed-git-nicla-voice-v91-imu.zip 
     echo "Installing Arduino Nicla Voice core OK"
 fi
 
@@ -161,7 +165,7 @@ fi
 if [ "$COMMAND" = "--build" ];
 then
     echo "Building $PROJECT"
-    arduino-cli compile -v --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --build-property "compiler.cpp.extra_flags=${CPP_FLAGS}" --output-dir . &
+    arduino-cli compile --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --build-property "compiler.cpp.extra_flags=${CPP_FLAGS}" --output-dir . &
     pid=$! # Process Id of the previous running command
     while kill -0 $pid 2>/dev/null
     do
@@ -183,7 +187,7 @@ elif [ "$COMMAND" = "--all" ];
 then
     echo "Building and flashing $PROJECT"
         echo "Building $PROJECT"
-    arduino-cli compile -v --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --build-property "compiler.cpp.extra_flags=${CPP_FLAGS}" --output-dir . &
+    arduino-cli compile --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --build-property "compiler.cpp.extra_flags=${CPP_FLAGS}" --output-dir . &
     pid=$! # Process Id of the previous running command
     while kill -0 $pid 2>/dev/null
     do

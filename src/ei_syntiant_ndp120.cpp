@@ -95,7 +95,7 @@ void ei_setup(char* fw1, char* fw2, char* fw3)
     NDP.onMatch(match_event);
 
     dev->get_ext_flash()->init_fs();
-    for (int8_t i; i < 3 ; i++) {
+    for (int8_t i = 0; i < 3 ; i++) {
         if (ptr_fw[i] != nullptr){                  // nullptr check
             if (dev->get_file_exist(ptr_fw[i])){
                 ei_printf("%s exist\n", ptr_fw[i]);
@@ -164,39 +164,43 @@ void ei_main(void)
 
     while (data != 0xFF) {
         at->handle(data);
+
+        if (ei_run_impulse_is_active() && data == 'b') {
+            ei_start_stop_run_impulse(false);
+        } 
+        
         data = Serial.read();
     }
 
-    if (got_match == true){
-        got_match = false;
-        nicla::leds.setColor(blue);
-        ThisThread::sleep_for(100);
-        nicla::leds.setColor(off);
-    }
+    if (ei_run_impulse_is_active() ==true) {
+        if (got_match == true){
+            got_match = false;
+            nicla::leds.setColor(blue);
+            ThisThread::sleep_for(100);
+            nicla::leds.setColor(off);
+        }
 
-    if (got_event == true){
-        got_event = false;
-        nicla::leds.setColor(green);
-        ThisThread::sleep_for(100);
-        nicla::leds.setColor(off);
-        match = NDP.poll();
-    }
+        if (got_event == true){
+            got_event = false;
+            nicla::leds.setColor(green);
+            ThisThread::sleep_for(100);
+            nicla::leds.setColor(off);
+            match = NDP.poll();
+        }
 
-    if (match > 0) {
-        ei_printf("match: %d\n", match);
-        match = -1;
-    }
+        if (match > 0) {
+            ei_printf("match: %d\n", match);
+            match = -1;
+        }
 
 #ifdef WITH_IMU
-    // for now by default we stay in inference
-    if (ei_run_impulse_is_active()) {
-        ei_run_impulse();
+        // for now by default we stay in inference
+        if (ei_run_impulse_is_active()) {
+            ei_run_impulse();
+        }
+#endif
     }
 
-#else
-    ThisThread::sleep_for(50);  /* needed ? */
-#endif
-    
 }
 
 

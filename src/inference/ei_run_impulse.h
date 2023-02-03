@@ -26,5 +26,6 @@ extern void ei_run_nn_normal(void);
 extern void ei_classification_output(int matched_feature);
 extern bool ei_run_impulse_is_active(void);
 extern void ei_run_impulse(void);
+extern void ei_start_stop_run_impulse(bool start);
 
 #endif

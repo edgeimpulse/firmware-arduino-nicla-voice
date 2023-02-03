@@ -33,7 +33,7 @@ bool _run_impulse = false;
 void ei_run_nn_normal(void)
 {
     _run_impulse = true;
-    //ei_start_stop_run_impulse(true);
+    ei_start_stop_run_impulse(true);
     // summary of inferencing settings (from model_metadata.h)
     ei_printf("Inferencing settings:\n");
     ei_printf("\tInterval: ");
@@ -49,7 +49,7 @@ void ei_run_nn_normal(void)
         ei_printf("\t%s\n", ei_classifier_inferencing_categories[ix]);
     }
 
-    //ei_printf("Starting inferencing, press 'b' to break\n");
+    ei_printf("Starting inferencing, press 'b' to break\n");
 #ifdef WITH_IMU
     ei_inertial_prepare_impulse();
 #endif
@@ -72,11 +72,6 @@ void ei_classification_output(int matched_feature)
                 (matched_feature == ix) ? 1 : 0);
         }
 
-        /* 
-         * todo
-         * add function to call for led ?
-        */
-        //on_classification_changed(ei_classifier_inferencing_categories[matched_feature], 0, 0);
     }
 }
 
@@ -104,4 +99,18 @@ void ei_run_impulse(void)
     ei_sleep(EI_CLASSIFIER_INTERVAL_MS);
     
 #endif
+}
+
+/**
+ * @brief 
+ * 
+ * @param start 
+ */
+void ei_start_stop_run_impulse(bool start)
+{    
+    _run_impulse = start;
+
+    if(!start) {
+        ei_printf("Inferencing stopped by user\r\n");
+    }
 }

@@ -179,41 +179,48 @@ static bool ei_bmi270_init(void)
     CHECK_STATUS(s);
     ei_printf("BMI270 chip ID is (expected is 0x24): 0x%x\n", sensor_data[0]);    
 
-    // soft reset
-    s = NDP.sensorBMI270Write(0x7e, 0x6b);
-    CHECK_STATUS(s);
-    delay(20); //delay 20ms much longer than reqired 450us
+    bool init = false;
 
-    // back to SPI mode after software reset
-    s = NDP.sensorBMI270Read(0x0, 1, sensor_data);
-    CHECK_STATUS(s);
-    s = NDP.sensorBMI270Read(0x0, 1, sensor_data);
-    CHECK_STATUS(s);
+    do {
+        // soft reset
+        s = NDP.sensorBMI270Write(0x7e, 0x6b);
+        CHECK_STATUS(s);
+        delay(20); //delay 20ms much longer than reqired 450us
 
-    // disable PWR_CONF.adv_power_save
-    s = NDP.sensorBMI270Write(0x7c, 0x00);
-    CHECK_STATUS(s);
-    delay(20); //delay 20ms much longer than reqired 450us
+        // back to SPI mode after software reset
+        s = NDP.sensorBMI270Read(0x0, 1, sensor_data);
+        CHECK_STATUS(s);
+        s = NDP.sensorBMI270Read(0x0, 1, sensor_data);
+        CHECK_STATUS(s);
 
-    // prepare config load INIT_CTRL = 0x00
-    s = NDP.sensorBMI270Write(0x59, 0x00);
-    CHECK_STATUS(s);
+        // disable PWR_CONF.adv_power_save
+        s = NDP.sensorBMI270Write(0x7c, 0x00);
+        CHECK_STATUS(s);
+        delay(20); //delay 20ms much longer than reqired 450us
 
-    // burst write to INIT_DATA
-    ei_printf("BMI270 init starting...");
-    s = NDP.sensorBMI270Write(0x5e,
-            sizeof(bmi270_maximum_fifo_config_file),
-            (uint8_t*)bmi270_maximum_fifo_config_file);
-    CHECK_STATUS(s);
-    ei_printf("... done!\n");
+        // prepare config load INIT_CTRL = 0x00
+        s = NDP.sensorBMI270Write(0x59, 0x00);
+        CHECK_STATUS(s);
 
-    s = NDP.sensorBMI270Write(0x59, 0x01);
-    CHECK_STATUS(s);
-    delay(200);
+        delay(20); //delay 20ms much longer than reqired 450us
+        // burst write to INIT_DATA
+        ei_printf("BMI270 init starting...");
+        s = NDP.sensorBMI270Write(0x5e,
+                sizeof(bmi270_maximum_fifo_config_file),
+                (uint8_t*)bmi270_maximum_fifo_config_file);
+        CHECK_STATUS(s);
+        ei_printf("... done!\n");
+        delay(20);
 
-    s = NDP.sensorBMI270Read(0x21, 1, sensor_data);
-    CHECK_STATUS(s);
-    ei_printf("BMI270 Status Register at address 0x21 is (expected is 0x01): 0x%x\n", sensor_data[0]);
+        s = NDP.sensorBMI270Write(0x59, 0x01);
+        CHECK_STATUS(s);
+        delay(200);
+
+        s = NDP.sensorBMI270Read(0x21, 1, sensor_data);
+        CHECK_STATUS(s);
+        ei_printf("BMI270 Status Register at address 0x21 is (expected is 0x01): 0x%x\n", sensor_data[0]);
+        init = (sensor_data[0] == 0x01);
+    }while(init == false);
 
     // configuring device to normal power mode with both Accelerometer and gyroscope working
     s = NDP.sensorBMI270Write(0x7d, 0x0e);
@@ -347,7 +354,7 @@ static bool ei_inertial_read_mag(float* mag_data)
 
 #ifdef WITH_IMU
 
-static int8_t*q7_imu_acc_data = nullptr;
+static int8_t q7_imu_acc_data[EI_CLASSIFIER_NN_INPUT_FRAME_SIZE];
 static uint16_t data_index = 0;
 static uint16_t actual_sample = 0;
 static bool acc_first = true;
@@ -355,17 +362,17 @@ static bool acc_first = true;
 void ei_inertial_prepare_impulse(void)
 {
     const char* axes = EI_CLASSIFIER_FUSION_AXES_STRING;
-    q7_imu_acc_data = (int8_t*)ei_malloc(EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
-
-    if (q7_imu_acc_data == nullptr) {
-        ei_printf("Error allocating mem\n");
-        while(1) {
-
-        }
-    }
+    //q7_imu_acc_data = (int8_t*)ei_malloc(EI_CLASSIFIER_NN_INPUT_FRAME_SIZE);
 
     if (strstr(axes, "gyr") == axes) {    // ugly, we start with gyr
         acc_first = false;
+    }
+
+    if (EI_CLASSIFIER_NN_INPUT_FRAME_SIZE < EI_CLASSIFIER_RAW_SAMPLE_COUNT) {
+        ei_printf("Error in the model metadata, EI_CLASSIFIER_NN_INPUT_FRAME_SIZE can't be less than (EI_CLASSIFIER_RAW_SAMPLE_COUNT * EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME)\n");
+        while(1){
+
+        };
     }
 }
 
@@ -377,8 +384,6 @@ void ei_inertial_prepare_impulse(void)
  */
 void ei_inertial_send_to_ndp(uint8_t axes)
 {
-    //static bool openset = true;
-    //start_time = rtos::Kernel::get_ms_count();
     static uint32_t old_time = 0;
     static uint32_t new_time = 0;
     uint32_t i;
@@ -394,7 +399,7 @@ void ei_inertial_send_to_ndp(uint8_t axes)
                 ei_inertial_read_accelerometer(float_imu_data);
 
                 for (i = 0; i< 3; i++) {
-                    float_imu_data[i] = float_imu_data[i]/(2.0f*CONVERT_G_TO_MS2);
+                    float_imu_data[i] = float_imu_data[i]/( 2.0f*CONVERT_G_TO_MS2 );
                     q7_imu_acc_data[data_index++] = (int8_t)(float_imu_data[i]*128);
                 }
             }
@@ -427,13 +432,6 @@ void ei_inertial_send_to_ndp(uint8_t axes)
                 }
             } 
         }
- 
-#if 0
-        for (i = 0; i < axes; i++) {
-            ei_printf("%f ", float_imu_data[i]);
-        }
-        ei_printf("\n");
-#endif
         
         actual_sample++;
         
