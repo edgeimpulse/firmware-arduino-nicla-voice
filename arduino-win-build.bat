@@ -1,7 +1,7 @@
 @echo off
 
 set PROJECT=firmware-arduino-nicla-voice
-set BOARD=arduino-git:mbed:nicla_voice
+set BOARD=arduino:mbed_nicla:nicla_voice
 set ARDUINO_CLI=arduino-cli
 set BUILD_OPTION=--build
 set FLASH_OPTION=--flash

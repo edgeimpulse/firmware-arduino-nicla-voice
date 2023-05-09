@@ -7,7 +7,8 @@ COMMAND=$1
 SENSOR=$2
 
 # used for grepping
-ARDUINO_CORE="arduino-git:mbed" # temporary !
+ARDUINO_CORE="arduino:mbed_nicla"
+ARDUINO_CORE_VERSION="3.5.5"
 
 BOARD="${ARDUINO_CORE}":nicla_voice
 
@@ -39,104 +40,20 @@ if (( CLI_MAJOR != EXPECTED_CLI_MAJOR || CLI_MINOR != EXPECTED_CLI_MINOR )); the
     echo "You're using an untested version of Arduino CLI, this might cause issues (found: $CLI_MAJOR.$CLI_MINOR.$CLI_REV, expected: $EXPECTED_CLI_MAJOR.$EXPECTED_CLI_MINOR.x)"
 fi
 
-#$ARDUINO_CLI config dump | grep 'user: '
-get_arduino_root() {
-	local OUTPUT=$($ARDUINO_CLI config dump | grep 'user: ')
-	local arduino_root="${OUTPUT:8}"
-	echo "$arduino_root"
-}
-ARDUINO_ROOT_DIR="$(get_arduino_root)"
-
-get_library_dir() {
-	local OUTPUT=$($ARDUINO_CLI config dump | grep 'user: ')
-	local lib="${OUTPUT:8}"/libraries
-	echo "$lib"
-}
-
-ARDUINO_LIB_DIR="$(get_library_dir)"
-if [[ -z "$ARDUINO_LIB_DIR" ]]; then
-    echo "Arduino libraries directory not found"
-    exit 1
-fi
-
-create_library_dir() {
-	local OUTPUT=$($ARDUINO_CLI config dump | grep 'user: ')
-	local lib="${OUTPUT:8}"/libraries
-	mkdir $OUTPUT
-    mkdir $lib
-}
-
-if [ ! -d "$ARDUINO_LIB_DIR" ]; then
-    create_library_dir
-fi
-
-# Check for libraries - sperimental for now.
+# Check for libraries
 # Board lib
 has_mbed_core() {
-    $ARDUINO_CLI core list | grep -e "arduino-git:mbed.*9.9.9"
+    $ARDUINO_CLI core list | grep -e "${ARDUINO_CORE}.*${ARDUINO_CORE_VERSION}"
 }
 HAS_ARDUINO_CORE="$(has_mbed_core)"
+
 if [ -z "$HAS_ARDUINO_CORE" ]; then
+    echo not found
     echo "Installing Arduino Nicla Voice core..."
-
-    wget -O "${ARDUINO_ROOT_DIR}/hardware-mbed-git-nicla-voice-v91-imu.zip" https://cdn.edgeimpulse.com/build-system/hardware-mbed-git-nicla-voice-v91-imu.zip
-    unzip "${ARDUINO_ROOT_DIR}/hardware-mbed-git-nicla-voice-v91-imu.zip" -d "${ARDUINO_ROOT_DIR}/"
-
-    rm ${ARDUINO_ROOT_DIR}/hardware-mbed-git-nicla-voice-v91-imu.zip 
+    $ARDUINO_CLI core update-index
+    $ARDUINO_CLI core install "${ARDUINO_CORE}@${ARDUINO_CORE_VERSION}"
     echo "Installing Arduino Nicla Voice core OK"
 fi
-
-has_nicla_core() {
-    $ARDUINO_CLI core list | grep -e "arduino:mbed_nicla.*3.1.1"
-}
-HAS_NICLA_CORE="$(has_nicla_core)"
-if [ -z "$HAS_NICLA_CORE" ]; then
-    echo "Installing Arduino Nicla core..."
-    $ARDUINO_CLI core update-index
-    $ARDUINO_CLI core install arduino:mbed_nicla@3.1.1
-    echo "Installing Arduino Nicla core OK"
-fi
-
-# Check Nicla_System
-has_Nicla_sense_lib() {
-	$ARDUINO_CLI lib list Nicla_System | grep 1.0 || true
-}
-HAS_NICLA_SENSE_LIB="$(has_Nicla_sense_lib)"
-if [ -z "$HAS_NICLA_SENSE_LIB" ]; then
-    if [ -d "$HAS_NDP_UTILS_LIB/Nicla_System" ]; then
-        rm -r "$HAS_NDP_UTILS_LIB/Nicla_System"
-    fi
-    echo "Installing Nicla_Sense_System library..."
-    cp -R lib/Nicla_System "${ARDUINO_LIB_DIR}"
-    echo "Installing Nicla_Sense_System library OK"
-fi
-
-# Check for NDP disabled, we use the one in the /src for now
-#has_NDP_lib() {
-#	$ARDUINO_CLI lib list NDP | grep 1.0.0 || true
-#}
-#HAS_NDP_LIB="$(has_NDP_lib)"
-#if [ -z "$HAS_NDP_LIB" ]; then
-#    echo "Installing NDP library..."
-#    cp -R lib/NDP "${ARDUINO_LIB_DIR}"
-#    echo "Installing NDP library OK"
-#fi
-
-# Check NDP_utils v1.0.2
-has_NDP_utils_lib() {
-	$ARDUINO_CLI lib list NDP_utils | grep 1.0.2 || true
-}
-HAS_NDP_UTILS_LIB="$(has_NDP_utils_lib)"
-if [ -z "$HAS_NDP_UTILS_LIB" ]; then
-    if [ -d "$HAS_NDP_UTILS_LIB/NDP_utils" ]; then
-        rm -r "$HAS_NDP_UTILS_LIB/NDP_utils"
-    fi
-    echo "Installing NDP_utils library..."
-    cp -R lib/NDP_utils "${ARDUINO_LIB_DIR}"
-    echo "Installing NDP_utils library OK"
-fi
-
-# Functions
 
 # Include path
 INCLUDE="-I ./src"
@@ -147,11 +64,7 @@ INCLUDE+=" -I ./src/QCBOR/inc"
 INCLUDE+=" -I ./src/sensor_aq_mbedtls"
 # Flags
 FLAGS="-DARDUINOSTL_M_H"
-#FLAGS+=" -DMBED_HEAP_STATS_ENABLED=1"
-#FLAGS+=" -DMBED_STACK_STATS_ENABLED=1"
 FLAGS+=" -O1"
-#FLAGS+=" -DMBED_DEBUG"
-#FLAGS+=" -g3"
 FLAGS+=" -DEI_SENSOR_AQ_STREAM=FILE"
 FLAGS+=" -DEI_PORTING_ARDUINO=1"
 

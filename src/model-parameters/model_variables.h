@@ -24,13 +24,17 @@
 
 #include <stdint.h>
 #include "model_metadata.h"
+
+
 #include "edge-impulse-sdk/classifier/ei_model_types.h"
+#include "edge-impulse-sdk/classifier/inferencing_engines/engines.h"
 
 const char* ei_classifier_inferencing_categories[] = { "go", "stop", "z_openset" };
 
 uint8_t ei_dsp_config_23_axes[] = { 0 };
 const uint32_t ei_dsp_config_23_axes_size = 1;
 ei_dsp_config_audio_syntiant_t ei_dsp_config_23 = {
+    23, // uint32_t blockId
     1, // int implementationVersion
     1, // int length of axes
     0.032f, // float frame_length
@@ -43,7 +47,7 @@ ei_dsp_config_audio_syntiant_t ei_dsp_config_23 = {
     "log-bin" // select extractor
 };
 
-#define EI_DSP_PARAMS_GENERATED 1
+
 
 const ei_model_performance_calibration_t ei_calibration = {
     1, /* integer version number */
@@ -53,5 +57,6 @@ const ei_model_performance_calibration_t ei_calibration = {
     (int32_t)(EI_CLASSIFIER_RAW_SAMPLE_COUNT / ((EI_CLASSIFIER_FREQUENCY > 0) ? EI_CLASSIFIER_FREQUENCY : 1)) * 500, /* Half of model window */
     0   /* Don't use flags */
 };
+
 
 #endif // _EI_CLASSIFIER_MODEL_METADATA_H_

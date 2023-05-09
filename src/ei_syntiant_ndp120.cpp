@@ -88,7 +88,6 @@ void ei_setup(char* fw1, char* fw2, char* fw3)
             __DATE__,
             __TIME__);
 
-
     nicla::leds.setColor(green);
     //NDP.onError(error_event);
     NDP.onEvent(irq_event);
@@ -136,15 +135,10 @@ void ei_setup(char* fw1, char* fw2, char* fw3)
     /* init ar server */
     at = ei_at_init(dev);
 
-    /* sensor init */
-    ei_inertial_init();
-
-#ifdef WITH_IMU
-    // ei_inertial_read_test();
-#endif
-
     /* start inference */
     if (ndp_is_init == true) {
+        /* sensor init */
+        ei_inertial_init();
         ei_run_nn_normal();
     }    
 
