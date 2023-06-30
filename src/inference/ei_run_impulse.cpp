@@ -92,10 +92,8 @@ bool ei_run_impulse_is_active(void)
  */
 void ei_run_impulse(void)
 {
-#ifdef WITH_IMU
-    uint8_t axes = 6;
-
-    ei_inertial_send_to_ndp(axes);
+#ifdef WITH_IMU    
+    ei_inertial_send_to_ndp(EI_CLASSIFIER_RAW_SAMPLES_PER_FRAME);
     ei_sleep(EI_CLASSIFIER_INTERVAL_MS);
     
 #endif

@@ -1,7 +1,8 @@
 @echo off
 
 set PROJECT=firmware-arduino-nicla-voice
-set BOARD=arduino:mbed_nicla:nicla_voice
+set ARDUINO_CORE=arduino:mbed_nicla
+set BOARD=%ARDUINO_CORE%:nicla_voice
 set ARDUINO_CLI=arduino-cli
 set BUILD_OPTION=--build
 set FLASH_OPTION=--flash
@@ -25,6 +26,11 @@ IF ERRORLEVEL 1 (
 :: define and include
 set DEFINE=-DARDUINOSTL_M_H -DEI_SENSOR_AQ_STREAM=FILE -DEI_PORTING_ARDUINO=1 -DMBED_NO_GLOBAL_USING_DIRECTIVE -O3
 set INCLUDE=-I.\\src\\  -I.\\src\\ingestion-sdk -I.\\src\\ingestion-sdk-platform\\sensors\\ -I.\\src\\firmware-sdk\\ -I.\\src\\QCBOR\\inc\\ -I.\\src\\sensor_aq_mbedtls\\
+
+if defined SENSOR (
+    goto CHECKCOMMAND
+)
+:BACKHOME
 
 :: just build
 IF %COMMAND% == %BUILD_OPTION% goto :BUILD
@@ -78,5 +84,12 @@ IF %COM_PORT% == "" (
 
 echo FindingArduino Nicla Voice OK at %COM_PORT%
 goto COMM_FOUND
+
+:CHECKCOMMAND
+if %SENSOR% == %SENSOR_WITH_IMU% (
+    set DEFINE=-DARDUINOSTL_M_H -DEI_SENSOR_AQ_STREAM=FILE -DEI_PORTING_ARDUINO=1 -DMBED_NO_GLOBAL_USING_DIRECTIVE -O3 -DWITH_IMU
+)
+
+goto BACKHOME
 
 :COMMON_EXIT
