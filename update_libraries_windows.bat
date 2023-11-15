@@ -6,7 +6,12 @@ cd /d %~dp0
 
 set ARDUINO_CLI=arduino-cli
 set /A EXPECTED_CLI_MAJOR=0
-set /A EXPECTED_CLI_MINOR=21
+set /A EXPECTED_CLI_MINOR=34
+set /A EXPECTED_CLI_REV=2
+
+set ARDUINO_CORE=arduino:mbed_nicla
+set BOARD=%ARDUINO_CORE%:nicla_voice
+set MBED_VERSION=4.0.8
 
 where /q %ARDUINO_CLI%
 IF ERRORLEVEL 1 (
@@ -31,10 +36,14 @@ if !CLI_MINOR! LSS !EXPECTED_CLI_MINOR! (
 )
 
 if !CLI_MAJOR! NEQ !EXPECTED_CLI_MAJOR! (
-    echo You're using an untested version of Arduino CLI, this might cause issues (found: %CLI_MAJOR%.%CLI_MINOR%.%CLI_REV%, expected: %EXPECTED_CLI_MAJOR%.%EXPECTED_CLI_MINOR%.x )
+    echo You're using an untested version of Arduino CLI, this might cause issues (found: %CLI_MAJOR%.%CLI_MINOR%.%CLI_REV%, expected: %EXPECTED_CLI_MAJOR%.%EXPECTED_CLI_MINOR%.%EXPECTED_CLI_REV% )
 ) else (
     if !CLI_MINOR! NEQ !EXPECTED_CLI_MINOR! (
-        echo You're using an untested version of Arduino CLI, this might cause issues (found: %CLI_MAJOR%.%CLI_MINOR%.%CLI_REV%, expected: %EXPECTED_CLI_MAJOR%.%EXPECTED_CLI_MINOR%.x )
+        echo You're using an untested version of Arduino CLI, this might cause issues (found: %CLI_MAJOR%.%CLI_MINOR%.%CLI_REV%, expected: %EXPECTED_CLI_MAJOR%.%EXPECTED_CLI_MINOR%.%EXPECTED_CLI_REV% )
+    ) else (
+        if !CLI_REV! NEQ !EXPECTED_CLI_REV! (
+            echo You're using an untested version of Arduino CLI, this might cause issues (found: %CLI_MAJOR%.%CLI_MINOR%.%CLI_REV%, expected: %EXPECTED_CLI_MAJOR%.%EXPECTED_CLI_MINOR%.%EXPECTED_CLI_REV% )
+        ) 
     )
 )
 
@@ -48,16 +57,15 @@ set arduinodirectory=%OUTPUT:~8%%
 set library=%OUTPUT:~8%\libraries
 echo %arduinodirectory%
 
-echo Finding Arduino MBED Nicla v3.5.5...
+echo Finding Arduino Mbed Nicla %MBED_VERSION%...
 
-(arduino-cli core list  2> nul) | findstr /r "arduino:mbed_nicla.*3.5.5"
-IF %ERRORLEVEL% NEQ 0 (
-    echo Installing Nicla board ...
-    arduino-cli core update-index
-    arduino-cli core install arduino:mbed_nicla@3.5.5
-    echo Installing Nicla board OK
+set FOUND_VERSION=""
+for /f "tokens=2 delims== " %%A in ('arduino-cli core list ^| findstr /r "%ARDUINO_CORE%"') do (
+    set FOUND_VERSION=%%A
 )
-echo Finding Arduino MBED core OK
+IF NOT %FOUND_VERSION% == %MBED_VERSION% GOTO INSTALLCOREVERSION
+
+:ENDINSTALLCOREVERSION
 
 for /f "delims=" %%i in ('arduino-cli config dump ^| findstr /r "data: "') do (
     set OUTPUT=%%i
@@ -79,6 +87,13 @@ echo You need to upgrade your Arduino CLI version (now: %CLI_MAJOR%.%CLI_MINOR%.
 echo See https://arduino.github.io/arduino-cli/installation/ for upgrade instructions
 @pause
 exit /b 1
+
+:INSTALLCOREVERSION
+echo Installing Nicla board ...
+arduino-cli core update-index
+arduino-cli core install %ARDUINO_CORE%@%MBED_VERSION%
+echo Installing Nicla board OK
+GOTO ENDINSTALLCOREVERSION
 
 :LIBRARYDIRNOTFOUND
 echo Arduino library directory not found. 

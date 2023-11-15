@@ -1,8 +1,13 @@
 @echo off
+SETLOCAL ENABLEDELAYEDEXPANSION
+setlocal
+REM go to the folder where this bat script is located
+cd /d %~dp0
 
 set PROJECT=firmware-arduino-nicla-voice
 set ARDUINO_CORE=arduino:mbed_nicla
 set BOARD=%ARDUINO_CORE%:nicla_voice
+set MBED_VERSION=4.0.8
 set ARDUINO_CLI=arduino-cli
 set BUILD_OPTION=--build
 set FLASH_OPTION=--flash
@@ -14,7 +19,8 @@ set COMMAND=%1
 set SENSOR=%2
 
 set /A EXPECTED_CLI_MAJOR=0
-set /A EXPECTED_CLI_MINOR=21
+set /A EXPECTED_CLI_MINOR=34
+set /A EXPECTED_CLI_REV=2
 
 where /q %ARDUINO_CLI%
 IF ERRORLEVEL 1 (
@@ -50,8 +56,8 @@ goto :COMMON_EXIT
 
 :BUILD
     echo Building %PROJECT%
-    echo %ARDUINO_CLI% compile --fqbn %BOARD% --build-property "build.extra_flags=%DEFINE% %INCLUDE%"  --build-property "compiler.cpp.extra_flags=%CPP_FLAGS%" %PROJECT% --output-dir .
-    %ARDUINO_CLI% compile --fqbn %BOARD% --build-property "build.extra_flags=%DEFINE% %INCLUDE%" --build-property "compiler.cpp.extra_flags=%CPP_FLAGS%" %PROJECT% --output-dir .
+    echo %ARDUINO_CLI% compile -b %BOARD% --build-property "build.extra_flags=%DEFINE% %INCLUDE%"  --build-property "compiler.cpp.extra_flags=%CPP_FLAGS%" --output-dir .
+    %ARDUINO_CLI% compile -b %BOARD% --build-property "build.extra_flags=%DEFINE% %INCLUDE%" --build-property "compiler.cpp.extra_flags=%CPP_FLAGS%" --output-dir .
 goto :COMMON_EXIT
 
 :FLASH
@@ -62,8 +68,8 @@ goto :COMMON_EXIT
 
 :ALL
     echo Building %PROJECT%
-    echo %ARDUINO_CLI% compile --fqbn %BOARD% --build-property "build.extra_flags=%DEFINE% %INCLUDE%" --build-property "compiler.cpp.extra_flags=%CPP_FLAGS%" %PROJECT% --output-dir .
-    %ARDUINO_CLI% compile --fqbn %BOARD% --build-property "build.extra_flags=%DEFINE% %INCLUDE%" --build-property "compiler.cpp.extra_flags=%CPP_FLAGS%" %PROJECT% --output-dir .
+    echo %ARDUINO_CLI% compile --fqbn %BOARD% --build-property "build.extra_flags=%DEFINE% %INCLUDE%" --build-property "compiler.cpp.extra_flags=%CPP_FLAGS%" --output-dir .
+    %ARDUINO_CLI% compile --fqbn %BOARD% --build-property "build.extra_flags=%DEFINE% %INCLUDE%" --build-property "compiler.cpp.extra_flags=%CPP_FLAGS%" --output-dir .
     echo Flashing %PROJECT%
     echo %ARDUINO_CLI% upload -p%COM_PORT% --fqbn %BOARD% --input-dir .
     %ARDUINO_CLI% upload -p%COM_PORT% --fqbn %BOARD% --input-dir .

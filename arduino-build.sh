@@ -8,7 +8,7 @@ SENSOR=$2
 
 # used for grepping
 ARDUINO_CORE="arduino:mbed_nicla"
-ARDUINO_CORE_VERSION="3.5.5"
+ARDUINO_CORE_VERSION="4.0.8"
 
 BOARD="${ARDUINO_CORE}":nicla_voice
 
@@ -18,7 +18,8 @@ fi
 
 DIRNAME="$(basename "$SCRIPTPATH")"
 EXPECTED_CLI_MAJOR=0
-EXPECTED_CLI_MINOR=21
+EXPECTED_CLI_MINOR=34
+EXPECTED_CLI_REV=2
 
 if [ ! -x "$ARDUINO_CLI" ]; then
     echo "Cannot find 'arduino-cli' in your PATH. Install the Arduino CLI before you continue."
@@ -31,21 +32,42 @@ CLI_MINOR=$($ARDUINO_CLI version | cut -d. -f2)
 CLI_REV=$($ARDUINO_CLI version | cut -d. -f3 | cut -d ' '  -f1)
 
 if (( CLI_MINOR < EXPECTED_CLI_MINOR)); then
-    echo "You need to upgrade your Arduino CLI version (now: $CLI_MAJOR.$CLI_MINOR.$CLI_REV, but required: $EXPECTED_CLI_MAJOR.$EXPECTED_CLI_MINOR.x or higher)"
+    echo "You need to upgrade your Arduino CLI version (now: $CLI_MAJOR.$CLI_MINOR.$CLI_REV, but required: $EXPECTED_CLI_MAJOR.$EXPECTED_CLI_MINOR.$EXPECTED_CLI_REV or higher)"
     echo "See https://arduino.github.io/arduino-cli/installation/ for upgrade instructions"
     exit 1
 fi
 
-if (( CLI_MAJOR != EXPECTED_CLI_MAJOR || CLI_MINOR != EXPECTED_CLI_MINOR )); then
-    echo "You're using an untested version of Arduino CLI, this might cause issues (found: $CLI_MAJOR.$CLI_MINOR.$CLI_REV, expected: $EXPECTED_CLI_MAJOR.$EXPECTED_CLI_MINOR.x)"
+if (( CLI_MAJOR != EXPECTED_CLI_MAJOR || CLI_MINOR != EXPECTED_CLI_MINOR || CLI_REV != EXPECTED_CLI_REV)); then
+    echo "You're using an untested version of Arduino CLI, this might cause issues (found: $CLI_MAJOR.$CLI_MINOR.$CLI_REV, expected: $EXPECTED_CLI_MAJOR.$EXPECTED_CLI_MINOR.$EXPECTED_CLI_REV)"
 fi
 
-# Check for libraries
-# Board lib
-has_mbed_core() {
-    $ARDUINO_CLI core list | grep -e "${ARDUINO_CORE}.*${ARDUINO_CORE_VERSION}"
+# parses Arduino CLI's (core list and lib list) output and returns the installed version.
+# Expected format (spaces can vary):
+#    <package/core>   <installed version>  <latest version>  <other>
+#
+parse_installed() {
+    echo "${1}" | awk -F " " '{print $2}' || true
 }
-HAS_ARDUINO_CORE="$(has_mbed_core)"
+
+# finds a Arduino core installed and returns the version
+# otherwise it returns empty string
+#
+find_arduino_core() {
+    core=$1
+    version=$2
+    result=""
+    # space intentional
+    line="$($ARDUINO_CLI core list | grep "${core} " || true)"
+    if [ -n "$line" ]; then
+        installed="$(parse_installed "${line}")"
+        if [ "$version" = "$installed" ]; then
+           result="$installed"
+        fi
+    fi
+    echo $result
+}
+
+HAS_ARDUINO_CORE="$(find_arduino_core "${ARDUINO_CORE}" "${ARDUINO_CORE_VERSION}")"
 
 if [ -z "$HAS_ARDUINO_CORE" ]; then
     echo not found
@@ -99,7 +121,7 @@ then
 elif [ "$COMMAND" = "--all" ];
 then
     echo "Building and flashing $PROJECT"
-        echo "Building $PROJECT"
+    echo "Building $PROJECT"
     arduino-cli compile --fqbn  $BOARD --build-property build.extra_flags="$INCLUDE $FLAGS" --build-property "compiler.cpp.extra_flags=${CPP_FLAGS}" --output-dir . &
     pid=$! # Process Id of the previous running command
     while kill -0 $pid 2>/dev/null
