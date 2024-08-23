@@ -32,7 +32,7 @@
 const char* ei_classifier_inferencing_categories[] = { "go", "stop", "z_openset" };
 
 uint8_t ei_dsp_config_23_axes[] = { 0 };
-const uint32_t ei_dsp_config_23_axes_size = 1;
+const uint8_t ei_dsp_config_23_axes_size = 1;
 ei_dsp_config_audio_syntiant_t ei_dsp_config_23 = {
     23, // uint32_t blockId
     1, // int implementationVersion
